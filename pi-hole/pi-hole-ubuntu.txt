@@ -1,0 +1,71 @@
+#### >> Ubuntu 16.04 << ####
+
+# Install docker
+
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+sudo apt-get update
+sudo apt-get install -y docker-ce
+
+# Install docker-compose
+
+sudo curl -L "https://github.com/docker/compose/releases/download/1.26.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+
+# Deploy pi-hole
+
+## สร้าง User สำหรับ Deploy
+
+useradd -m deploy
+cd /home/deploy
+mkdir pi-hole
+cd pi-hole
+
+## สร้างไฟล์ docker-compose.yml ใส่ config ดังนี้
+
+version: "3"
+services:
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "67:67/udp"
+      - "8888:80/tcp"
+    environment:
+      TZ: 'Asia/Bangkok'
+    volumes:
+      - './etc-pihole/:/etc/pihole/'
+      - './etc-dnsmasq.d/:/etc/dnsmasq.d/'
+    dns:
+      - 127.0.0.1
+      - 1.1.1.1
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+
+# Start pi-hole
+
+docker-compose up -d
+
+# เข้าสู่เว็บ UI
+## ดู password แรกของ pi-hole
+
+docker logs pihole | grep password
+
+>> จะเห็นบรรทัดที่เขียนว่า Assigning random password: {Password}
+>> เว็บไซต์คือ http://{IP}:8888/admin
+
+# แก้ไขไฟล์ /etc/openvpn/server.conf (แก้ไขในส่วนของ IP DNS Server เราให้ถูกต้อง)
+
+push "dhcp-option DNS {Private_IP_DNS}"
+push "dhcp-option DNS {Public_IP_DNS}"
+
+# Restart openvpn
+
+systemctl restart openvpn
+
+# ทดสอบการใช้งาน
+
+เชื่อมต่อ VPN ตามปกติ,, ทดสอบ block website ตามปกติจากหน้าเว็บ UI
